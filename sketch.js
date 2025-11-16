@@ -1,9 +1,10 @@
 /* ==========================================================
-   Flood Note — Self-Healing Patches（ノイズ弱め版＋1枚目/最終枚は無加工）
+   Not Not Found — Self-Healing Patches
    ----------------------------------------------------------
    ・image01.jpg と最後の imageXX.jpg は「静止スライド」（ノイズなし）
    ・中間の画像だけ、ランダムなパッチ欠損 ＋ ほぼ自然な自己修復
-   ・←/→ で任意タイミングに前後の画像へ移動
+   ・PC: ← / → で前後移動
+   ・スマホ/PC: 画面タップでも前後移動
    ========================================================== */
 
 // =========================
@@ -24,17 +25,17 @@ const PATCHES_MAX_PER_TICK    = 4;  // 1回のタイミングで生成するパ�
 
 // パッチのサイズ（画像ピクセル単位）
 const PATCH_MIN = 30;            // 最小辺
-const PATCH_MAX = 600;           // 最大辺（大きめにすると大胆に欠損）
+const PATCH_MAX = 500;           // 最大辺（大きめにすると大胆に欠損）
 
 // 欠損と修復の所要フレーム
 const DECAY_FRAMES   = 30;       // 欠損にかける時間（長いほどゆっくり暗く/崩れる）
-const RESTORE_FRAMES = 60;     // 修復にかける時間（長いほどゆっくり戻る）
+const RESTORE_FRAMES = 50;      // 修復にかける時間（長いほどゆっくり戻る）
 
-// 欠損表現の強さ（★控えめ設定）
-const DECAY_DARKEN_MAX = 45;     // 最大暗化量（0〜255の加算的黒）
-const DECAY_NOISE_MAX  = 18;      // ノイズの振れ幅（±）
+// 欠損表現の強さ（控えめ設定）
+const DECAY_DARKEN_MAX = 25;     // 最大暗化量（0〜255の加算的黒）
+const DECAY_NOISE_MAX  = 5;      // ノイズの振れ幅（±）
 
-// 不完全修復の“違和感”コントロール（★控えめ）
+// 不完全修復の“違和感”コントロール（控えめ）
 const REPAIR_JITTER_PX     = 0.4;   // 元画像から貼るときの微小座標ズレ（px）
 const REPAIR_SCALE_JITTER  = 0.006; // 0.6%くらいのスケール誤差
 const REPAIR_CHROMA_DRIFT  = 0.003; // RGBのわずかな係数ズレ
@@ -93,6 +94,12 @@ function setup(){
 // ▶ メインループ
 // =========================
 function draw(){
+  // 画像がまだ準備できていないときは何もしない（真っ黒防止）
+  if (!workImg){
+    background(BG_COLOR);
+    return;
+  }
+
   background(BG_COLOR);
 
   const staticSlide = isStaticIndex(curr);
@@ -100,7 +107,10 @@ function draw(){
   if (!staticSlide){
     // 中間の写真だけ、パッチ生成＆更新を行う
     if (frameCount % PATCH_INTERVAL_FRAMES === 0){
-      const numPatches = int(random(PATCHES_MIN_PER_TICK, PATCHES_MAX_PER_TICK + 1)); // 2〜4個
+      const numPatches = int(random(
+        PATCHES_MIN_PER_TICK,
+        PATCHES_MAX_PER_TICK + 1
+      )); // 2〜4個
       for(let n=0; n<numPatches; n++){
         spawnPatch();
       }
@@ -355,7 +365,7 @@ function seamFrame(g, x, y, w, h, k=0.04){
       g.pixels[iL+1] = dark(g.pixels[iL+1]);
       g.pixels[iL+2] = dark(g.pixels[iL+2]);
     }
-    if(x+w-1>=0 && x+w-1<H){
+    if(x+w-1>=0 && x+w-1<W){
       g.pixels[iR]   = lite(g.pixels[iR]);
       g.pixels[iR+1] = lite(g.pixels[iR+1]);
       g.pixels[iR+2] = lite(g.pixels[iR+2]);
@@ -423,11 +433,35 @@ function boxBlurRect(g, x, y, w, h, r=1){
 }
 
 // =========================
-// ▶ 入力（←/→）＆リサイズ
+// ▶ 入力（←/→・タップ）＆リサイズ
 // =========================
 function keyPressed(){
   if (keyCode === RIGHT_ARROW) gotoNext();
   else if (keyCode === LEFT_ARROW) gotoPrev();
+}
+
+// PCクリック & スマホタップ両方対応
+function mousePressed(){
+  // 画面の右半分タップ → 次へ
+  // 左半分タップ → 前へ
+  if (mouseX > width / 2){
+    gotoNext();
+  } else {
+    gotoPrev();
+  }
+}
+
+// スマホ用（必要なら）※mousePressedだけでも動くブラウザが多い
+function touchStarted(){
+  if (touches.length > 0){
+    const t = touches[0];
+    if (t.x > width / 2){
+      gotoNext();
+    } else {
+      gotoPrev();
+    }
+  }
+  // デフォルト動作（スクロールなど）を止めないために false は返さない
 }
 
 function windowResized(){
